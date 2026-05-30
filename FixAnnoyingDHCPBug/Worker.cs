@@ -11,6 +11,7 @@ namespace FixAnnoyingDHCPBug
         private readonly IHostApplicationLifetime hostApplicationLifetime;
         private readonly ServiceSettings _settings;
         private int _retryCount = 0;
+        private readonly Dictionary<string, TaskResult> Results = [];
 
         public Worker(ILogger<Worker> logger, IHostApplicationLifetime hostApplicationLifetime, IOptions<ServiceSettings> settings)
         {
@@ -27,20 +28,48 @@ namespace FixAnnoyingDHCPBug
             if (logger.IsEnabled(LogLevel.Debug))
             {
                 logger.LogDebug("Service started.");
-                logger.LogDebug("Interface: {interface}", _settings.InterfaceName);
+                logger.LogDebug("Interface: {interfaces}", string.Join(", ", _settings.InterfaceNames));
                 logger.LogDebug("Delay: {delay}", _settings.BounceDelaySeconds);
                 logger.LogDebug("Retries: {retries}", _settings.MaxRetries);
                 logger.LogDebug("Period: {period}", _settings.PeriodDelay);
             }
             using PeriodicTimer timer = new(_period);
+            foreach (var interfaceName in _settings.InterfaceNames)
+            {
+                Results.Add(interfaceName, TaskResult.Retry);
+            }
 
             try
             {
                 while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
                 {
                     logger.LogDebug("Worker running at: {time}", DateTimeOffset.Now);
-                    await DoWorkAsync(stoppingToken);
 
+                    var ifaces = Results.Where(x => x.Value == TaskResult.Retry).Select(x => x.Key).ToArray();
+                    foreach (var iface in ifaces)
+                    {
+                        Results[iface] = await CheckAndFixIntercace(iface, stoppingToken);
+                    }
+
+                    if (!Results.Any(x => x.Value == TaskResult.Retry))
+                    {
+                        logger.LogInformation("All interfaces have reached a non retry state. Shutting down.");
+                        hostApplicationLifetime.StopApplication();
+                    }
+
+
+
+                    _retryCount++;
+                    if (_retryCount == _settings.MaxRetries)
+                    {
+                        logger.LogWarning("Max retry count ({MaxRetries}) reached. Shutting down.", _settings.MaxRetries);
+                        hostApplicationLifetime.StopApplication();
+                        break;
+                    }
+                    else
+                    {
+                        logger.LogDebug("Retry {Retry} of {MaxRetries}", _retryCount, _settings.MaxRetries);
+                    }
                 }
             }
             catch (OperationCanceledException)
@@ -53,16 +82,15 @@ namespace FixAnnoyingDHCPBug
                 throw;
             }
         }
-        private async Task DoWorkAsync(CancellationToken cancellationToken)
+        private async Task<TaskResult> CheckAndFixIntercace(string interfaceName, CancellationToken cancellationToken)
         {
             NetworkInterface? networkInterface = NetworkInterface.GetAllNetworkInterfaces()
-            .FirstOrDefault(ni => ni.Name.Equals(_settings.InterfaceName, StringComparison.OrdinalIgnoreCase));
+            .FirstOrDefault(ni => ni.Name.Equals(interfaceName, StringComparison.OrdinalIgnoreCase));
 
             if (networkInterface == null)
             {
-                logger.LogWarning("Interface '{InterfaceName}' not found.", _settings.InterfaceName);
-                hostApplicationLifetime.StopApplication();
-                return;
+                logger.LogWarning("Interface '{InterfaceName}' not found.", interfaceName);
+                return TaskResult.InterfaceNotFound;
             }
 
             IPInterfaceProperties ipProperties = networkInterface.GetIPProperties();
@@ -70,37 +98,30 @@ namespace FixAnnoyingDHCPBug
 
             if (!isDhcpEnabled)
             {
-                logger.LogInformation("DHCP is not enabled on interface '{InterfaceName}'. Skipping check.", _settings.InterfaceName);
-                hostApplicationLifetime.StopApplication();
-                return;
+                logger.LogInformation("DHCP is not enabled on interface '{InterfaceName}'. Skipping check.", interfaceName);
+                return TaskResult.NoDHCPEnabled;
             }
 
             bool hasGateway = ipProperties.GatewayAddresses.Any(g => !g.Address.ToString().Equals("0.0.0.0"));
 
             if (hasGateway)
             {
-                logger.LogInformation("Success: Default gateway detected on interface '{InterfaceName}'. Shutting down service.", _settings.InterfaceName);
-                hostApplicationLifetime.StopApplication();
-                return;
+                logger.LogInformation("Success: Default gateway detected on interface '{InterfaceName}'.", interfaceName);
+                return TaskResult.Success;
             }
 
-            logger.LogWarning("DHCP is active but no default gateway was found on '{InterfaceName}'.", _settings.InterfaceName);
-            _retryCount++;
+            logger.LogWarning("DHCP is active but no default gateway was found on '{InterfaceName}'.", interfaceName);
 
-            if (_retryCount > _settings.MaxRetries)
-            {
-                throw new InvalidOperationException($"Maximum retry limit ({_settings.MaxRetries}) reached. Gateway could not be recovered.");
-            }
-
-            logger.LogInformation("Retry attempt {Count} of {Max}. Disabling interface...", _retryCount, _settings.MaxRetries);
+            logger.LogInformation("Disabling interface '{InterfaceName}'...", interfaceName);
             ToggleInterface(networkInterface.Id, false);
 
             await Task.Delay(_delay, cancellationToken);
 
-            logger.LogInformation("Re-enabling interface...");
+            logger.LogInformation("Re-enabling interface '{InterfaceName}'...", interfaceName);
             ToggleInterface(networkInterface.Id, true);
 
             await Task.Delay(_delay, cancellationToken);
+            return TaskResult.Retry;
         }
 
         private void ToggleInterface(string interfaceGuid, bool enable)
