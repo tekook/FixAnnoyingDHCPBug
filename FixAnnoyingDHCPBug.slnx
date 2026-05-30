@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="FixAnnoyingDHCPBug/FixAnnoyingDHCPBug.csproj" />
+  <Project Path="SetupProject/SetupProject.vdproj" Type="Installer">
+    <Build />
+  </Project>
+</Solution>
