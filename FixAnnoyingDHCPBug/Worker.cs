@@ -113,24 +113,24 @@ namespace FixAnnoyingDHCPBug
             logger.LogWarning("DHCP is active but no default gateway was found on '{InterfaceName}'.", interfaceName);
 
             logger.LogInformation("Disabling interface '{InterfaceName}'...", interfaceName);
-            ToggleInterface(networkInterface.Id, false);
+            ToggleInterface(interfaceName, false);
 
             await Task.Delay(_delay, cancellationToken);
 
             logger.LogInformation("Re-enabling interface '{InterfaceName}'...", interfaceName);
-            ToggleInterface(networkInterface.Id, true);
+            ToggleInterface(interfaceName, true);
 
             await Task.Delay(_delay, cancellationToken);
             return TaskResult.Retry;
         }
 
-        private void ToggleInterface(string interfaceGuid, bool enable)
+        private void ToggleInterface(string interfaceName, bool enable)
         {
             string action = enable ? "enable" : "disable";
 
             using var process = new System.Diagnostics.Process();
             process.StartInfo.FileName = "netsh";
-            process.StartInfo.Arguments = $"interface set interface name=\"{interfaceGuid}\" admin={action}";
+            process.StartInfo.Arguments = $"interface set interface name=\"{interfaceName}\" admin={action}";
             process.StartInfo.CreateNoWindow = true;
             process.StartInfo.UseShellExecute = false;
 
@@ -139,7 +139,7 @@ namespace FixAnnoyingDHCPBug
 
             if (process.ExitCode != 0)
             {
-                logger.LogError("Failed to {Action} interface via netsh. Exit code: {Code}", action, process.ExitCode);
+                logger.LogError("Failed to {Action} interface ({Interface}) via netsh. Exit code: {Code}", action, interfaceName, process.ExitCode);
             }
         }
     }
