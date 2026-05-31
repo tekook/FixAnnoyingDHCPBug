@@ -23,7 +23,11 @@ namespace FixAnnoyingDHCPBug
             this._delay = TimeSpan.FromSeconds(settings.Value.BounceDelaySeconds);
 
         }
-
+        /// <summary>
+        /// Main Loop
+        /// </summary>
+        /// <param name="stoppingToken"></param>
+        /// <returns></returns>
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             if (this.logger.IsEnabled(LogLevel.Debug))
@@ -84,6 +88,13 @@ namespace FixAnnoyingDHCPBug
                 throw;
             }
         }
+        /// <summary>
+        /// Checks the given interface for existing, DHCP-enabled and the default gateway.
+        /// If DHCP is enabled and no gateway is found, the interface will get toggled and retried.
+        /// </summary>
+        /// <param name="interfaceName">Name of the interface</param>
+        /// <param name="cancellationToken"></param>
+        /// <returns>The result of the check</returns>
         private async Task<TaskResult> CheckAndFixIntercace(string interfaceName, CancellationToken cancellationToken)
         {
             NetworkInterface? networkInterface = NetworkInterface.GetAllNetworkInterfaces()
@@ -123,7 +134,11 @@ namespace FixAnnoyingDHCPBug
             await Task.Delay(this._delay, cancellationToken);
             return TaskResult.Retry;
         }
-
+        /// <summary>
+        /// Disabled or enabled the interface via the netsh command.
+        /// </summary>
+        /// <param name="interfaceName">Name of interface</param>
+        /// <param name="enable">True for enabling, false for disabling.</param>
         private void ToggleInterface(string interfaceName, bool enable)
         {
             string action = enable ? "enable" : "disable";
@@ -142,7 +157,6 @@ namespace FixAnnoyingDHCPBug
                 this.logger.LogError("Failed to {Action} interface ({Interface}) via netsh. Exit code: {Code}", action, interfaceName, process.ExitCode);
             }
         }
-
         private void LogInformation(string message, params object?[] args)
         {
             if (this.logger.IsEnabled(LogLevel.Information))

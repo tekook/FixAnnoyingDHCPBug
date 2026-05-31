@@ -5,9 +5,9 @@ namespace FixAnnoyingDHCPBug
 {
     public class Program
     {
+        private const string _serviceName = "FixAnnoyingDHCPBug";
         public static void Main(string[] args)
         {
-            string serviceName = "FixAnnoyingDHCPBug";
             if (args.Length > 0)
             {
                 string exePath = Environment.ProcessPath ?? Assembly.GetExecutingAssembly().Location;
@@ -15,14 +15,14 @@ namespace FixAnnoyingDHCPBug
 
                 if (args[0] == "/Install")
                 {
-                    Process.Start("sc.exe", $"create \"{serviceName}\" binPath= \"{exePath}\" start= auto obj= \"LocalSystem\"");
-                    Process.Start("sc.exe", $"start \"{serviceName}\"");
+                    Process.Start("sc.exe", $"create \"{_serviceName}\" binPath= \"{exePath}\" start= auto obj= \"LocalSystem\"");
+                    Process.Start("sc.exe", $"start \"{_serviceName}\"");
                     return;
                 }
                 if (args[0] == "/Uninstall")
                 {
-                    Process.Start("sc.exe", $"stop \"{serviceName}\"")?.WaitForExit();
-                    Process.Start("sc.exe", $"delete \"{serviceName}\"");
+                    Process.Start("sc.exe", $"stop \"{_serviceName}\"")?.WaitForExit();
+                    Process.Start("sc.exe", $"delete \"{_serviceName}\"");
                     return;
                 }
             }
@@ -30,7 +30,7 @@ namespace FixAnnoyingDHCPBug
             var builder = Host.CreateApplicationBuilder(args);
             builder.Services.AddWindowsService(options =>
             {
-                options.ServiceName = serviceName;
+                options.ServiceName = _serviceName;
             });
             builder.Services.Configure<ServiceSettings>(builder.Configuration.GetSection("ServiceSettings"));
             builder.Services.AddHostedService<Worker>();
