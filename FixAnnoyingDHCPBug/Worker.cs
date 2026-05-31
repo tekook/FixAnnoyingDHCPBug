@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using System.Diagnostics;
 using System.Net.NetworkInformation;
 
 namespace FixAnnoyingDHCPBug
@@ -25,60 +26,61 @@ namespace FixAnnoyingDHCPBug
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            if (logger.IsEnabled(LogLevel.Debug))
+            if (this.logger.IsEnabled(LogLevel.Debug))
             {
-                logger.LogDebug("Service started.");
-                logger.LogDebug("Interface: {interfaces}", string.Join(", ", _settings.InterfaceNames));
-                logger.LogDebug("Delay: {delay}", _settings.BounceDelaySeconds);
-                logger.LogDebug("Retries: {retries}", _settings.MaxRetries);
-                logger.LogDebug("Period: {period}", _settings.PeriodDelay);
+                this.logger.LogDebug("Service started.");
+                this.logger.LogDebug("Interface: {interfaces}; Delay: {delay}, Retries: {retries}, Period: {period}",
+                                     string.Join(", ", this._settings.InterfaceNames),
+                                     this._settings.BounceDelaySeconds,
+                                     this._settings.MaxRetries,
+                                     this._settings.PeriodDelay);
             }
-            using PeriodicTimer timer = new(_period);
-            foreach (var interfaceName in _settings.InterfaceNames)
+            using PeriodicTimer timer = new(this._period);
+            foreach (var interfaceName in this._settings.InterfaceNames)
             {
-                Results.Add(interfaceName, TaskResult.Retry);
+                this.Results.Add(interfaceName, TaskResult.Retry);
             }
 
             try
             {
                 while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
                 {
-                    logger.LogDebug("Worker running at: {time}", DateTimeOffset.Now);
+                    this.LogDebug("Worker running at: {time}", DateTimeOffset.Now);
 
-                    var ifaces = Results.Where(x => x.Value == TaskResult.Retry).Select(x => x.Key).ToArray();
+                    var ifaces = this.Results.Where(x => x.Value == TaskResult.Retry).Select(x => x.Key).ToArray();
                     foreach (var iface in ifaces)
                     {
-                        Results[iface] = await CheckAndFixIntercace(iface, stoppingToken);
+                        this.Results[iface] = await this.CheckAndFixIntercace(iface, stoppingToken);
                     }
 
-                    if (!Results.Any(x => x.Value == TaskResult.Retry))
+                    if (!this.Results.Any(x => x.Value == TaskResult.Retry))
                     {
-                        logger.LogInformation("All interfaces have reached a non retry state. Shutting down.");
-                        hostApplicationLifetime.StopApplication();
+                        this.LogInformation("All interfaces have reached a non retry state. Shutting down.");
+                        this.hostApplicationLifetime.StopApplication();
                     }
 
 
 
-                    _retryCount++;
-                    if (_retryCount == _settings.MaxRetries)
+                    this._retryCount++;
+                    if (this._retryCount == this._settings.MaxRetries)
                     {
-                        logger.LogWarning("Max retry count ({MaxRetries}) reached. Shutting down.", _settings.MaxRetries);
-                        hostApplicationLifetime.StopApplication();
+                        this.logger.LogWarning("Max retry count ({MaxRetries}) reached. Shutting down.", this._settings.MaxRetries);
+                        this.hostApplicationLifetime.StopApplication();
                         break;
                     }
                     else
                     {
-                        logger.LogDebug("Retry {Retry} of {MaxRetries}", _retryCount, _settings.MaxRetries);
+                        this.LogDebug("Retry {Retry} of {MaxRetries}", this._retryCount, this._settings.MaxRetries);
                     }
                 }
             }
             catch (OperationCanceledException)
             {
-                logger.LogDebug("Worker termination requested.");
+                this.logger.LogDebug("Worker termination requested.");
             }
             catch (Exception ex)
             {
-                logger.LogCritical(ex, "An error occurred during task execution.");
+                this.logger.LogCritical(ex, "An error occurred during task execution.");
                 throw;
             }
         }
@@ -89,7 +91,7 @@ namespace FixAnnoyingDHCPBug
 
             if (networkInterface == null)
             {
-                logger.LogWarning("Interface '{InterfaceName}' not found.", interfaceName);
+                this.logger.LogWarning("Interface '{InterfaceName}' not found.", interfaceName);
                 return TaskResult.InterfaceNotFound;
             }
 
@@ -98,7 +100,7 @@ namespace FixAnnoyingDHCPBug
 
             if (!isDhcpEnabled)
             {
-                logger.LogInformation("DHCP is not enabled on interface '{InterfaceName}'. Skipping check.", interfaceName);
+                this.LogInformation("DHCP is not enabled on interface '{InterfaceName}'.", interfaceName);
                 return TaskResult.NoDHCPEnabled;
             }
 
@@ -106,21 +108,19 @@ namespace FixAnnoyingDHCPBug
 
             if (hasGateway)
             {
-                logger.LogInformation("Success: Default gateway detected on interface '{InterfaceName}'.", interfaceName);
+                this.LogInformation("Success: Default gateway detected on interface '{InterfaceName}'.", interfaceName);
                 return TaskResult.Success;
             }
 
-            logger.LogWarning("DHCP is active but no default gateway was found on '{InterfaceName}'.", interfaceName);
+            this.logger.LogWarning("DHCP is active but no default gateway was found on '{InterfaceName}'.", interfaceName);
+            this.LogInformation("Disabling interface '{InterfaceName}'...", interfaceName);
+            this.ToggleInterface(interfaceName, false);
 
-            logger.LogInformation("Disabling interface '{InterfaceName}'...", interfaceName);
-            ToggleInterface(interfaceName, false);
+            await Task.Delay(this._delay, cancellationToken);
+            this.LogInformation("Re-enabling interface '{InterfaceName}'...", interfaceName);
+            this.ToggleInterface(interfaceName, true);
 
-            await Task.Delay(_delay, cancellationToken);
-
-            logger.LogInformation("Re-enabling interface '{InterfaceName}'...", interfaceName);
-            ToggleInterface(interfaceName, true);
-
-            await Task.Delay(_delay, cancellationToken);
+            await Task.Delay(this._delay, cancellationToken);
             return TaskResult.Retry;
         }
 
@@ -128,7 +128,7 @@ namespace FixAnnoyingDHCPBug
         {
             string action = enable ? "enable" : "disable";
 
-            using var process = new System.Diagnostics.Process();
+            using var process = new Process();
             process.StartInfo.FileName = "netsh";
             process.StartInfo.Arguments = $"interface set interface name=\"{interfaceName}\" admin={action}";
             process.StartInfo.CreateNoWindow = true;
@@ -139,7 +139,22 @@ namespace FixAnnoyingDHCPBug
 
             if (process.ExitCode != 0)
             {
-                logger.LogError("Failed to {Action} interface ({Interface}) via netsh. Exit code: {Code}", action, interfaceName, process.ExitCode);
+                this.logger.LogError("Failed to {Action} interface ({Interface}) via netsh. Exit code: {Code}", action, interfaceName, process.ExitCode);
+            }
+        }
+
+        private void LogInformation(string message, params object?[] args)
+        {
+            if (this.logger.IsEnabled(LogLevel.Information))
+            {
+                this.LogInformation(message, args);
+            }
+        }
+        private void LogDebug(string message, params object?[] args)
+        {
+            if (this.logger.IsEnabled(LogLevel.Debug))
+            {
+                this.LogDebug(message, args);
             }
         }
     }
