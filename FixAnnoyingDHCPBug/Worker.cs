@@ -79,6 +79,9 @@ namespace FixAnnoyingDHCPBug
 
                         if (this._stopped == false)
                         {
+                            this._retryCount++;
+                            this.Log(LogLevel.Debug, "(Re)Try {Retry} of {MaxRetries}", this._retryCount, this._settings.MaxRetries);
+
                             var ifaces = this.Results.Where(x => x.Value == TaskResult.Retry).Select(x => x.Key).ToArray();
                             foreach (var iface in ifaces)
                             {
@@ -93,15 +96,10 @@ namespace FixAnnoyingDHCPBug
 
 
 
-                            this._retryCount++;
                             if (this._retryCount == this._settings.MaxRetries)
                             {
                                 this.logger.LogWarning("Max retry count ({MaxRetries}) reached -> stopping worker.", this._settings.MaxRetries);
                                 this._stopped = true;
-                            }
-                            else
-                            {
-                                this.Log(LogLevel.Debug, "Retry {Retry} of {MaxRetries}", this._retryCount, this._settings.MaxRetries);
                             }
                         }
                     }
