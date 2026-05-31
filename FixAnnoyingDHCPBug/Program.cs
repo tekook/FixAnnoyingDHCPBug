@@ -32,6 +32,7 @@ namespace FixAnnoyingDHCPBug
             {
                 options.ServiceName = _serviceName;
             });
+            builder.Services.AddSingleton<IHostLifetime, PowerAwareLifetime>();
             builder.Services.Configure<ServiceSettings>(builder.Configuration.GetSection("ServiceSettings"));
             builder.Services.AddHostedService<Worker>();
 

@@ -12,6 +12,8 @@ namespace FixAnnoyingDHCPBug
         private readonly IHostApplicationLifetime hostApplicationLifetime;
         private readonly ServiceSettings _settings;
         private int _retryCount = 0;
+        private bool _stopped = false;
+        private readonly SemaphoreSlim _semaphore = new(0);
         private readonly Dictionary<string, TaskResult> Results = [];
 
         public Worker(ILogger<Worker> logger, IHostApplicationLifetime hostApplicationLifetime, IOptions<ServiceSettings> settings)
@@ -23,6 +25,18 @@ namespace FixAnnoyingDHCPBug
             this._delay = TimeSpan.FromSeconds(settings.Value.BounceDelaySeconds);
 
         }
+
+        /// <summary>
+        /// Reset the service and start again.
+        /// </summary>
+        public void TriggerByPowerEvent()
+        {
+            this.Log(LogLevel.Information, "Service triggered by PowerEvent.");
+            this._stopped = false;
+            this._retryCount = 0;
+            this._semaphore.Release();
+        }
+
         /// <summary>
         /// Main Loop
         /// </summary>
@@ -47,34 +61,54 @@ namespace FixAnnoyingDHCPBug
 
             try
             {
-                while (!stoppingToken.IsCancellationRequested && await timer.WaitForNextTickAsync(stoppingToken))
+                while (!stoppingToken.IsCancellationRequested)
                 {
-                    this.LogDebug("Worker running at: {time}", DateTimeOffset.Now);
-
-                    var ifaces = this.Results.Where(x => x.Value == TaskResult.Retry).Select(x => x.Key).ToArray();
-                    foreach (var iface in ifaces)
+                    try
                     {
-                        this.Results[iface] = await this.CheckAndFixIntercace(iface, stoppingToken);
+                        this.LogDebug("Worker running at: {time}", DateTimeOffset.Now);
+
+                        if (this._stopped == false)
+                        {
+                            var ifaces = this.Results.Where(x => x.Value == TaskResult.Retry).Select(x => x.Key).ToArray();
+                            foreach (var iface in ifaces)
+                            {
+                                this.Results[iface] = await this.CheckAndFixIntercace(iface, stoppingToken);
+                            }
+
+                            if (!this.Results.Any(x => x.Value == TaskResult.Retry))
+                            {
+                                this.LogInformation("All interfaces have reached a non retry state. Shutting down.");
+                                this._stopped = true;
+                            }
+
+
+
+                            this._retryCount++;
+                            if (this._retryCount == this._settings.MaxRetries)
+                            {
+                                this.logger.LogWarning("Max retry count ({MaxRetries}) reached. Shutting down.", this._settings.MaxRetries);
+                                this._stopped = true;
+                            }
+                            else
+                            {
+                                this.LogDebug("Retry {Retry} of {MaxRetries}", this._retryCount, this._settings.MaxRetries);
+                            }
+                        }
                     }
-
-                    if (!this.Results.Any(x => x.Value == TaskResult.Retry))
+                    catch (Exception ex)
                     {
-                        this.LogInformation("All interfaces have reached a non retry state. Shutting down.");
-                        this.hostApplicationLifetime.StopApplication();
+                        this.logger.LogCritical(ex, "Service encountered a critical error - stopping worker");
+                        this._stopped = true;
                     }
-
-
-
-                    this._retryCount++;
-                    if (this._retryCount == this._settings.MaxRetries)
+                    if (this._stopped)
                     {
-                        this.logger.LogWarning("Max retry count ({MaxRetries}) reached. Shutting down.", this._settings.MaxRetries);
-                        this.hostApplicationLifetime.StopApplication();
-                        break;
+                        await this._semaphore.WaitAsync(stoppingToken);
                     }
                     else
                     {
-                        this.LogDebug("Retry {Retry} of {MaxRetries}", this._retryCount, this._settings.MaxRetries);
+                        await Task.WhenAny(
+                            Task.Delay(this._period, stoppingToken),
+                            this._semaphore.WaitAsync(stoppingToken));
                     }
                 }
             }
@@ -155,6 +189,14 @@ namespace FixAnnoyingDHCPBug
             if (process.ExitCode != 0)
             {
                 this.logger.LogError("Failed to {Action} interface ({Interface}) via netsh. Exit code: {Code}", action, interfaceName, process.ExitCode);
+            }
+        }
+
+        private void Log(LogLevel level, string message, params object?[] args)
+        {
+            if (this.logger.IsEnabled(level))
+            {
+                this.logger.Log(level, message, args);
             }
         }
         private void LogInformation(string message, params object?[] args)
