@@ -34,7 +34,16 @@ namespace FixAnnoyingDHCPBug
             this.Log(LogLevel.Information, "Service triggered by PowerEvent.");
             this._stopped = false;
             this._retryCount = 0;
+            this.ClearResults();
             this._semaphore.Release();
+        }
+        private void ClearResults()
+        {
+            this.Results.Clear();
+            foreach (var interfaceName in this._settings.InterfaceNames)
+            {
+                this.Results.Add(interfaceName, TaskResult.Retry);
+            }
         }
 
         /// <summary>
@@ -53,10 +62,8 @@ namespace FixAnnoyingDHCPBug
                                      this._settings.MaxRetries,
                                      this._settings.PeriodDelay);
             }
-            foreach (var interfaceName in this._settings.InterfaceNames)
-            {
-                this.Results.Add(interfaceName, TaskResult.Retry);
-            }
+
+            this.ClearResults();
 
             try
             {
