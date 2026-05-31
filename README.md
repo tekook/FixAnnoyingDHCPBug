@@ -36,15 +36,17 @@ Update the appsettings.json to your need in your installation folder.
 {
   "ServiceSettings": {
     "InterfaceNames": ["Ethernet", "Ethernet2", "WLAN"],
-    "BounceDelaySeconds": 15,
+    "BounceDelay": 15,
     "MaxRetries": 5,
-    "PeriodDelay": 10
+    "PeriodDelay": 10,
+    "InitialDelay": 30
   }
 }
 ```
 - `InterfaceNames`: Check with `netsh interface show interface`
-- `PeriodDelay`: This is the delay between retries of the service. This is also the initial delay after the service starts.
-- `BounceDelaySeconds`: How much seconds to wait between disabling and re-enabling the interface.
+- `PeriodDelay`: This is the delay between retries of the service.
+- `BounceDelay`: How much seconds to wait between disabling and re-enabling the interface.
+- `InitialDelay`: Delay after service start or resume from PowerEvent
 
 ## Build
 Open `FixAnnoyingDHCPBug.slnx` in Visual Studio or `dotnet build`.

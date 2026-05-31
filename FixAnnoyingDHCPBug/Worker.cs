@@ -22,7 +22,7 @@ namespace FixAnnoyingDHCPBug
             this.hostApplicationLifetime = hostApplicationLifetime;
             this._settings = settings.Value;
             this._period = TimeSpan.FromSeconds(settings.Value.PeriodDelay);
-            this._delay = TimeSpan.FromSeconds(settings.Value.BounceDelaySeconds);
+            this._delay = TimeSpan.FromSeconds(settings.Value.BounceDelay);
 
         }
 
@@ -49,11 +49,10 @@ namespace FixAnnoyingDHCPBug
                 this.logger.LogDebug("Service started.");
                 this.logger.LogDebug("Interface: {interfaces}; Delay: {delay}, Retries: {retries}, Period: {period}",
                                      string.Join(", ", this._settings.InterfaceNames),
-                                     this._settings.BounceDelaySeconds,
+                                     this._settings.BounceDelay,
                                      this._settings.MaxRetries,
                                      this._settings.PeriodDelay);
             }
-            using PeriodicTimer timer = new(this._period);
             foreach (var interfaceName in this._settings.InterfaceNames)
             {
                 this.Results.Add(interfaceName, TaskResult.Retry);
@@ -61,6 +60,10 @@ namespace FixAnnoyingDHCPBug
 
             try
             {
+                if (this._settings.InitialDelay > 0)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(this._settings.InitialDelay), stoppingToken);
+                }
                 while (!stoppingToken.IsCancellationRequested)
                 {
                     try
@@ -103,6 +106,10 @@ namespace FixAnnoyingDHCPBug
                     if (this._stopped)
                     {
                         await this._semaphore.WaitAsync(stoppingToken);
+                        if(this._settings.InitialDelay > 0)
+                        {
+                            await Task.Delay(this._settings.InitialDelay, stoppingToken);
+                        }
                     }
                     else
                     {
