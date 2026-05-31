@@ -65,7 +65,7 @@ namespace FixAnnoyingDHCPBug
                 {
                     try
                     {
-                        this.LogDebug("Worker running at: {time}", DateTimeOffset.Now);
+                        this.Log(LogLevel.Debug, "Worker running at: {time}", DateTimeOffset.Now);
 
                         if (this._stopped == false)
                         {
@@ -77,7 +77,7 @@ namespace FixAnnoyingDHCPBug
 
                             if (!this.Results.Any(x => x.Value == TaskResult.Retry))
                             {
-                                this.LogInformation("All interfaces have reached a non retry state. Shutting down.");
+                                this.Log(LogLevel.Information, "All interfaces have reached a non retry state. Shutting down.");
                                 this._stopped = true;
                             }
 
@@ -91,7 +91,7 @@ namespace FixAnnoyingDHCPBug
                             }
                             else
                             {
-                                this.LogDebug("Retry {Retry} of {MaxRetries}", this._retryCount, this._settings.MaxRetries);
+                                this.Log(LogLevel.Debug, "Retry {Retry} of {MaxRetries}", this._retryCount, this._settings.MaxRetries);
                             }
                         }
                     }
@@ -114,7 +114,7 @@ namespace FixAnnoyingDHCPBug
             }
             catch (OperationCanceledException)
             {
-                this.logger.LogDebug("Worker termination requested.");
+                this.Log(LogLevel.Debug, "Worker termination requested.");
             }
             catch (Exception ex)
             {
@@ -122,6 +122,7 @@ namespace FixAnnoyingDHCPBug
                 throw;
             }
         }
+
         /// <summary>
         /// Checks the given interface for existing, DHCP-enabled and the default gateway.
         /// If DHCP is enabled and no gateway is found, the interface will get toggled and retried.
@@ -145,7 +146,7 @@ namespace FixAnnoyingDHCPBug
 
             if (!isDhcpEnabled)
             {
-                this.LogInformation("DHCP is not enabled on interface '{InterfaceName}'.", interfaceName);
+                this.Log(LogLevel.Information, "DHCP is not enabled on interface '{InterfaceName}'.", interfaceName);
                 return TaskResult.NoDHCPEnabled;
             }
 
@@ -153,21 +154,22 @@ namespace FixAnnoyingDHCPBug
 
             if (hasGateway)
             {
-                this.LogInformation("Success: Default gateway detected on interface '{InterfaceName}'.", interfaceName);
+                this.Log(LogLevel.Information, "Success: Default gateway detected on interface '{InterfaceName}'.", interfaceName);
                 return TaskResult.Success;
             }
 
             this.logger.LogWarning("DHCP is active but no default gateway was found on '{InterfaceName}'.", interfaceName);
-            this.LogInformation("Disabling interface '{InterfaceName}'...", interfaceName);
+            this.Log(LogLevel.Information, "Disabling interface '{InterfaceName}'...", interfaceName);
             this.ToggleInterface(interfaceName, false);
 
             await Task.Delay(this._delay, cancellationToken);
-            this.LogInformation("Re-enabling interface '{InterfaceName}'...", interfaceName);
+            this.Log(LogLevel.Information, "Re-enabling interface '{InterfaceName}'...", interfaceName);
             this.ToggleInterface(interfaceName, true);
 
             await Task.Delay(this._delay, cancellationToken);
             return TaskResult.Retry;
         }
+
         /// <summary>
         /// Disabled or enabled the interface via the netsh command.
         /// </summary>
@@ -197,20 +199,6 @@ namespace FixAnnoyingDHCPBug
             if (this.logger.IsEnabled(level))
             {
                 this.logger.Log(level, message, args);
-            }
-        }
-        private void LogInformation(string message, params object?[] args)
-        {
-            if (this.logger.IsEnabled(LogLevel.Information))
-            {
-                this.LogInformation(message, args);
-            }
-        }
-        private void LogDebug(string message, params object?[] args)
-        {
-            if (this.logger.IsEnabled(LogLevel.Debug))
-            {
-                this.LogDebug(message, args);
             }
         }
     }
