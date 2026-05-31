@@ -15,14 +15,14 @@ namespace FixAnnoyingDHCPBug
 
                 if (args[0] == "/Install")
                 {
-                    Process.Start("sc.exe", $"create \"{_serviceName}\" binPath= \"{exePath}\" start= auto obj= \"LocalSystem\"");
-                    Process.Start("sc.exe", $"start \"{_serviceName}\"");
+                    Process.Start("sc.exe", $"create \"{_serviceName}\" binPath= \"{exePath}\" start= auto obj= \"LocalSystem\"")?.WaitForExit();
+                    Process.Start("sc.exe", $"start \"{_serviceName}\"")?.WaitForExit();
                     return;
                 }
                 if (args[0] == "/Uninstall")
                 {
                     Process.Start("sc.exe", $"stop \"{_serviceName}\"")?.WaitForExit();
-                    Process.Start("sc.exe", $"delete \"{_serviceName}\"");
+                    Process.Start("sc.exe", $"delete \"{_serviceName}\"")?.WaitForExit();
                     return;
                 }
             }
