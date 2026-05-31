@@ -111,7 +111,7 @@ namespace FixAnnoyingDHCPBug
                     if (this._stopped)
                     {
                         await this._semaphore.WaitAsync(stoppingToken);
-                        if(this._settings.InitialDelay > 0)
+                        if (this._settings.InitialDelay > 0)
                         {
                             await Task.Delay(this._settings.InitialDelay, stoppingToken);
                         }
