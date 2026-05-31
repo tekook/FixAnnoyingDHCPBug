@@ -26,16 +26,16 @@ namespace FixAnnoyingDHCPBug
 
         protected override bool OnPowerEvent(PowerBroadcastStatus powerStatus)
         {
-            if (this._logger.IsEnabled(LogLevel.Information))
+            if (this._logger.IsEnabled(LogLevel.Debug))
             {
-                this._logger.LogInformation("Power event detected: {Status}", powerStatus);
+                this._logger.LogDebug("Power event detected: {Status}", powerStatus);
             }
 
             if (powerStatus == PowerBroadcastStatus.ResumeAutomatic)
             {
                 if (this._logger.IsEnabled(LogLevel.Information))
                 {
-                    this._logger.LogInformation("System resumed from Fast Startup / Hibernation. Re-triggering network check...");
+                    this._logger.LogInformation("Received ResumeAutomatic from PowerEvent. Rescheduling network check.");
                 }
                 this._worker.TriggerByPowerEvent();
             }
