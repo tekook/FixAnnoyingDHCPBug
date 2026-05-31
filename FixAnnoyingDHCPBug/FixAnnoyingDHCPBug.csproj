@@ -11,6 +11,7 @@
     <PackageProjectUrl>https://github.com/tekook/FixAnnoyingDHCPBug</PackageProjectUrl>
     <RepositoryUrl>https://github.com/tekook/FixAnnoyingDHCPBug.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
+    <VersionPrefix>1.0.1</VersionPrefix>
   </PropertyGroup>
 
   <ItemGroup>

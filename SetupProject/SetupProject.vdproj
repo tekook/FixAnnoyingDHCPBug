@@ -88,6 +88,14 @@
             "PrerequisitesLocation" = "2:1"
             "Url" = "8:"
             "ComponentsUrl" = "8:"
+                "Items"
+                {
+                    "{EDC2488A-8267-493A-A98E-7D9C3B36CDF3}:.NETFramework,Version=v4.7.2"
+                    {
+                    "Name" = "8:Microsoft .NET Framework 4.7.2 (x86 and x64)"
+                    "ProductCode" = "8:.NETFramework,Version=v4.7.2"
+                    }
+                }
             }
         }
     }
@@ -264,15 +272,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:FixAnnoyingDHCPBug"
-        "ProductCode" = "8:{DD3E044E-61B0-4338-94DA-AB05234A1111}"
-        "PackageCode" = "8:{20177E04-C13C-4C31-9BA7-339E868200AA}"
+        "ProductCode" = "8:{5024797F-4873-439C-BD13-D5A839327B81}"
+        "PackageCode" = "8:{8D0D8FE3-1D1A-4C41-8EC1-359CA730B155}"
         "UpgradeCode" = "8:{767E926C-1B43-4911-ADB5-79C91AB45A82}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:TRUE"
-        "ProductVersion" = "8:1.0.0"
+        "ProductVersion" = "8:1.0.1"
         "Manufacturer" = "8:Tekook"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
