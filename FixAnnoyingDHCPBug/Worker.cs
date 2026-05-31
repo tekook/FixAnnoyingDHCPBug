@@ -80,7 +80,7 @@ namespace FixAnnoyingDHCPBug
 
                             if (!this.Results.Any(x => x.Value == TaskResult.Retry))
                             {
-                                this.Log(LogLevel.Information, "All interfaces have reached a non retry state. Shutting down.");
+                                this.Log(LogLevel.Information, "All interfaces have reached a non retry state -> stopping worker.");
                                 this._stopped = true;
                             }
 
