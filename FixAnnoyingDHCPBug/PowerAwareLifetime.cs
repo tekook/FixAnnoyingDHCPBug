@@ -12,7 +12,7 @@ namespace FixAnnoyingDHCPBug
         public PowerAwareLifetime(
             IHostEnvironment environment,
             IHostApplicationLifetime applicationLifetime,
-            LoggerFactory loggerFactory,
+            ILoggerFactory loggerFactory,
             ILogger<PowerAwareLifetime> logger,
             IOptions<HostOptions> hostOptions,
             IEnumerable<IHostedService> hostedServices)

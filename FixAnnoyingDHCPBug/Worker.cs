@@ -86,7 +86,7 @@ namespace FixAnnoyingDHCPBug
                             this._retryCount++;
                             if (this._retryCount == this._settings.MaxRetries)
                             {
-                                this.logger.LogWarning("Max retry count ({MaxRetries}) reached. Shutting down.", this._settings.MaxRetries);
+                                this.logger.LogWarning("Max retry count ({MaxRetries}) reached -> stopping worker.", this._settings.MaxRetries);
                                 this._stopped = true;
                             }
                             else
@@ -97,7 +97,7 @@ namespace FixAnnoyingDHCPBug
                     }
                     catch (Exception ex)
                     {
-                        this.logger.LogCritical(ex, "Service encountered a critical error - stopping worker");
+                        this.logger.LogCritical(ex, "Service encountered a critical error -> stopping worker.");
                         this._stopped = true;
                     }
                     if (this._stopped)
