@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/Projektmappenelemente/">
+    <File Path="README.md" />
+  </Folder>
   <Project Path="FixAnnoyingDHCPBug/FixAnnoyingDHCPBug.csproj" />
   <Project Path="SetupProject/SetupProject.vdproj" Type="Installer">
     <Build />
